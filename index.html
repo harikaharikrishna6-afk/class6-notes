@@ -28,6 +28,7 @@ color:white;
 margin:15px;
 text-decoration:none;
 font-weight:bold;
+cursor:pointer;
 }
 
 .container{
@@ -62,13 +63,8 @@ border-radius:8px;
 .note-image{
 width:200px;
 cursor:pointer;
-transition:0.3s;
 margin-top:10px;
 border-radius:5px;
-}
-
-.note-image:hover{
-transform:scale(1.05);
 }
 </style>
 
@@ -82,9 +78,9 @@ transform:scale(1.05);
 </header>
 
 <nav>
-<a href="#" onclick="showHome()">Home</a>
-<a href="#" onclick="showUpload()">Upload Notes</a>
-<a href="#" onclick="showNotes()">Daily Notes</a>
+<a onclick="showHome()">Home</a>
+<a onclick="showUpload()">Upload Notes</a>
+<a onclick="showNotes()">Daily Notes</a>
 </nav>
 
 <div class="container" id="content"></div>
@@ -95,7 +91,6 @@ function showHome(){
 document.getElementById("content").innerHTML = `
 <h2>Welcome</h2>
 <p>This platform helps Class 6 students access daily classwork and homework.</p>
-<p>If a student misses school or forgets a book, notes can be checked here.</p>
 `;
 }
 
@@ -112,8 +107,8 @@ document.getElementById("content").innerHTML = `
 <label>Notes</label>
 <input type="text" id="notes">
 
-<label>Upload Notebook Photo</label>
-<input type="file" id="photo" accept="image/*">
+<label>Upload Notebook Photos</label>
+<input type="file" id="photo" accept="image/*" multiple>
 
 <label>Parent Name</label>
 <input type="text" id="parent">
@@ -122,102 +117,92 @@ document.getElementById("content").innerHTML = `
 `;
 }
 
-function showNotes(){
-let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
+async function saveNote(){
 
-notes.sort((a, b) => new Date(b.date) - new Date(a.date));
+let files = document.getElementById("photo").files;
+let images = [];
+
+for(let i=0;i<files.length;i++){
+let reader = new FileReader();
+
+await new Promise(resolve=>{
+reader.onload=function(e){
+images.push(e.target.result);
+resolve();
+}
+reader.readAsDataURL(files[i]);
+});
+}
+
+await addDoc(collection(db, "notes"), {
+date: document.getElementById("date").value,
+subject: document.getElementById("subject").value,
+notes: document.getElementById("notes").value,
+parent: document.getElementById("parent").value,
+images: images
+});
+
+alert("Notes uploaded successfully!");
+showNotes();
+
+}
+
+async function showNotes(){
 
 let html = "<h2>Daily Notes</h2>";
 
-notes.forEach((note, index) => {
+const querySnapshot = await getDocs(collection(db, "notes"));
+
+querySnapshot.forEach((docItem) => {
+
+let note = docItem.data();
+let imagesHTML="";
+
+if(note.images){
+note.images.forEach(img=>{
+imagesHTML += `<img src="${img}" class="note-image" onclick="openImage('${img}')">`;
+});
+}
+
 html += `
 <div class="note">
 <b>Date:</b> ${note.date}<br>
 <b>Subject:</b> ${note.subject}<br>
 <b>Notes:</b> ${note.notes}<br>
 <b>Uploaded by:</b> ${note.parent}<br>
-${note.image ? `<img src="${note.image}" class="note-image" onclick="openImage('${note.image}')">` : ""}
+${imagesHTML}
 <br><br>
-<button onclick="deleteNote(${index})">Delete</button>
+<button onclick="deleteNote('${docItem.id}')">Delete</button>
 </div>
 `;
+
 });
 
 document.getElementById("content").innerHTML = html;
+
 }
 
-function saveNote(){
-let file = document.getElementById("photo").files[0];
-let reader = new FileReader();
-
-reader.onload = function(){
-
-let note = {
-date: document.getElementById("date").value,
-subject: document.getElementById("subject").value,
-notes: document.getElementById("notes").value,
-parent: document.getElementById("parent").value,
-image: reader.result
-};
-
-let storedNotes = JSON.parse(localStorage.getItem("classNotes")) || [];
-storedNotes.push(note);
-
-localStorage.setItem("classNotes", JSON.stringify(storedNotes));
-
-alert("Notes uploaded successfully!");
+async function deleteNote(id){
+await deleteDoc(doc(db, "notes", id));
 showNotes();
-};
-
-if(file){
-reader.readAsDataURL(file);
-} else {
-
-let note = {
-date: document.getElementById("date").value,
-subject: document.getElementById("subject").value,
-notes: document.getElementById("notes").value,
-parent: document.getElementById("parent").value,
-image: null
-};
-
-let storedNotes = JSON.parse(localStorage.getItem("classNotes")) || [];
-storedNotes.push(note);
-
-localStorage.setItem("classNotes", JSON.stringify(storedNotes));
-
-alert("Notes uploaded successfully!");
-showNotes();
-}
-}
-
-function deleteNote(index){
-if(confirm("Are you sure you want to delete this note?")){
-let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
-notes.splice(index,1);
-localStorage.setItem("classNotes", JSON.stringify(notes));
-showNotes();
-}
 }
 
 function openImage(src){
 let viewer = document.createElement("div");
 
-viewer.style.position = "fixed";
-viewer.style.top = "0";
-viewer.style.left = "0";
-viewer.style.width = "100%";
-viewer.style.height = "100%";
-viewer.style.background = "rgba(0,0,0,0.8)";
-viewer.style.display = "flex";
-viewer.style.alignItems = "center";
-viewer.style.justifyContent = "center";
+viewer.style.position="fixed";
+viewer.style.top="0";
+viewer.style.left="0";
+viewer.style.width="100%";
+viewer.style.height="100%";
+viewer.style.background="rgba(0,0,0,0.8)";
+viewer.style.display="flex";
+viewer.style.alignItems="center";
+viewer.style.justifyContent="center";
 
-viewer.innerHTML = `
-<img src="${src}" style="max-width:90%; max-height:90%; border-radius:10px;">
-`;
+viewer.innerHTML=`<img src="${src}" style="max-width:90%; max-height:90%">`;
 
-viewer.onclick = function(){
+viewer.onclick=function(){
 document.body.removeChild(viewer);
 };
 
@@ -226,6 +211,31 @@ document.body.appendChild(viewer);
 
 showHome();
 
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const firebaseConfig = {
+apiKey: "AIzaSyCf0dJcAQ_owKkhePBPQWw5RHmNhImgPSg",
+authDomain: "class6-notes.firebaseapp.com",
+projectId: "class6-notes",
+storageBucket: "class6-notes.firebasestorage.app",
+messagingSenderId: "392541164978",
+appId: "1:392541164978:web:d3b86d768be2eae87b00ab",
+measurementId: "G-MJZ09QFZHR"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.db = db;
+window.collection = collection;
+window.addDoc = addDoc;
+window.getDocs = getDocs;
+window.deleteDoc = deleteDoc;
+window.doc = doc;
 </script>
 
 </body>

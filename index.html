@@ -14,7 +14,7 @@ header{
 background:#4a6cf7;
 color:white;
 text-align:center;
-padding:15px;
+padding:18px;
 }
 
 nav{
@@ -28,20 +28,22 @@ color:white;
 margin:15px;
 text-decoration:none;
 font-weight:bold;
-cursor:pointer;
 }
 
 .container{
 background:white;
 margin:20px;
 padding:20px;
-border-radius:10px;
+border-radius:12px;
+box-shadow:0 4px 10px rgba(0,0,0,0.1);
 }
 
-input{
+input, select{
 padding:8px;
 width:100%;
 margin-bottom:10px;
+border-radius:5px;
+border:1px solid #ccc;
 }
 
 button{
@@ -50,21 +52,35 @@ color:white;
 border:none;
 padding:10px;
 cursor:pointer;
-border-radius:5px;
+border-radius:6px;
+margin-top:5px;
 }
 
 .note{
 background:#f5f7ff;
-padding:10px;
+padding:12px;
 margin-top:15px;
-border-radius:8px;
+border-radius:10px;
 }
 
 .note-image{
 width:200px;
+margin:6px;
+border-radius:6px;
 cursor:pointer;
-margin-top:10px;
-border-radius:5px;
+transition:0.3s;
+}
+
+.note-image:hover{
+transform:scale(1.05);
+}
+
+.tools{
+margin-bottom:15px;
+}
+
+.thank{
+background:#28a745;
 }
 </style>
 
@@ -74,13 +90,13 @@ border-radius:5px;
 
 <header>
 <h1>Class 6 Daily Notes Hub</h1>
-<p>Helping students and parents</p>
+<p>Helping students and parents stay updated</p>
 </header>
 
 <nav>
-<a onclick="showHome()">Home</a>
-<a onclick="showUpload()">Upload Notes</a>
-<a onclick="showNotes()">Daily Notes</a>
+<a href="#" onclick="showHome()">Home</a>
+<a href="#" onclick="showUpload()">Upload Notes</a>
+<a href="#" onclick="showNotes()">Daily Notes</a>
 </nav>
 
 <div class="container" id="content"></div>
@@ -90,7 +106,7 @@ border-radius:5px;
 function showHome(){
 document.getElementById("content").innerHTML = `
 <h2>Welcome</h2>
-<p>This platform helps Class 6 students access daily classwork and homework.</p>
+<p>This website helps Class 6 students access daily classwork and homework.</p>
 `;
 }
 
@@ -102,93 +118,181 @@ document.getElementById("content").innerHTML = `
 <input type="date" id="date">
 
 <label>Subject</label>
-<input type="text" id="subject">
+<select id="subject">
+<option value="">Select Subject</option>
+<option>Math </option>
+<option>Science</option>
+<option>English</option>
+<option>Social</option>
+<option>Computer</option>
+<option>Hindi</option>
+<option>Telugu</option>
+<option>Other</option>
+</select>
 
-<label>Notes</label>
+<label>Notes / Homework</label>
 <input type="text" id="notes">
 
 <label>Upload Notebook Photos</label>
-<input type="file" id="photo" accept="image/*" multiple>
+<input type="file" id="photo" multiple accept="image/*">
 
 <label>Parent Name</label>
 <input type="text" id="parent">
 
-<button onclick="saveNote()">Upload</button>
+<button onclick="saveNote()">Upload Notes</button>
 `;
 }
 
-async function saveNote(){
+function showNotes(){
+let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
 
-let files = document.getElementById("photo").files;
-let images = [];
+notes.sort((a,b)=> new Date(b.date)-new Date(a.date));
 
-for(let i=0;i<files.length;i++){
-let reader = new FileReader();
+let html = `
+<h2>Daily Notes</h2>
 
-await new Promise(resolve=>{
-reader.onload=function(e){
-images.push(e.target.result);
-resolve();
-}
-reader.readAsDataURL(files[i]);
-});
-}
+<div class="tools">
+<input type="text" id="search" placeholder="Search notes..." onkeyup="filterNotes()">
 
-await addDoc(collection(db, "notes"), {
-date: document.getElementById("date").value,
-subject: document.getElementById("subject").value,
-notes: document.getElementById("notes").value,
-parent: document.getElementById("parent").value,
-images: images
-});
+<select id="filter" onchange="filterNotes()">
+<option value="all">All Subjects</option>
+<option value="math">Math</option>
+<option value="science">Science</option>
+<option value="english">English</option>
+<option value="social">Social</option>
+<option value="computer">Computer</option>
+<option value="Hindi">Hindi</option>
+<option value="Telugu">Telugu</option>
 
-alert("Notes uploaded successfully!");
-showNotes();
+<option value="other">Other</option>
+</select>
+</div>
+`;
 
-}
-
-async function showNotes(){
-
-let html = "<h2>Daily Notes</h2>";
-
-const querySnapshot = await getDocs(collection(db, "notes"));
-
-querySnapshot.forEach((docItem) => {
-
-let note = docItem.data();
-let imagesHTML="";
-
-if(note.images){
-note.images.forEach(img=>{
-imagesHTML += `<img src="${img}" class="note-image" onclick="openImage('${img}')">`;
-});
-}
+notes.forEach((note,index)=>{
 
 html += `
-<div class="note">
+<div class="note" data-subject="${note.subject.toLowerCase()}">
+
 <b>Date:</b> ${note.date}<br>
 <b>Subject:</b> ${note.subject}<br>
 <b>Notes:</b> ${note.notes}<br>
 <b>Uploaded by:</b> ${note.parent}<br>
-${imagesHTML}
-<br><br>
-<button onclick="deleteNote('${docItem.id}')">Delete</button>
-</div>
+<b>Thanks:</b> ${note.thanks || 0}<br>
 `;
 
+if(note.images){
+note.images.forEach(img=>{
+html += `<img src="${img}" class="note-image" onclick="openImage('${img}')">`;
+});
+}
+
+html += `
+<br>
+<button class="thank" onclick="thankNote(${index})">Thank You ❤️</button>
+<button onclick="deleteNote(${index})">Delete</button>
+</div>
+`;
 });
 
 document.getElementById("content").innerHTML = html;
-
 }
 
-async function deleteNote(id){
-await deleteDoc(doc(db, "notes", id));
+function filterNotes(){
+let search = document.getElementById("search").value.toLowerCase();
+let subject = document.getElementById("filter").value;
+let notes = document.querySelectorAll(".note");
+
+notes.forEach(note=>{
+let text = note.innerText.toLowerCase();
+let noteSubject = note.dataset.subject;
+
+let searchMatch = text.includes(search);
+let subjectMatch = subject === "all" || noteSubject.includes(subject);
+
+if(searchMatch && subjectMatch){
+note.style.display="block";
+}else{
+note.style.display="none";
+}
+});
+}
+
+function saveNote(){
+
+let date = document.getElementById("date").value;
+let subject = document.getElementById("subject").value;
+let notesText = document.getElementById("notes").value;
+let parent = document.getElementById("parent").value;
+let files = document.getElementById("photo").files;
+
+if(date === "" || subject === "" || notesText === "" || parent === ""){
+alert("Please fill all fields before uploading.");
+return;
+}
+
+if(files.length === 0){
+alert("Please upload at least one photo of the notebook.");
+return;
+}
+
+let images = [];
+let total = files.length;
+let loaded = 0;
+
+for(let i=0;i<files.length;i++){
+let reader = new FileReader();
+
+reader.onload = function(e){
+images.push(e.target.result);
+loaded++;
+
+if(loaded === total){
+store(images);
+}
+};
+
+reader.readAsDataURL(files[i]);
+}
+}
+
+function store(images){
+let note={
+date:document.getElementById("date").value,
+subject:document.getElementById("subject").value,
+notes:document.getElementById("notes").value,
+parent:document.getElementById("parent").value,
+images:images,
+thanks:0
+};
+
+let data = JSON.parse(localStorage.getItem("classNotes")) || [];
+data.push(note);
+
+localStorage.setItem("classNotes",JSON.stringify(data));
+
+alert("Notes uploaded successfully!");
 showNotes();
 }
 
+function thankNote(index){
+let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
+notes[index].thanks++;
+localStorage.setItem("classNotes",JSON.stringify(notes));
+showNotes();
+}
+
+function deleteNote(index){
+if(confirm("Delete this note?")){
+let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
+notes.splice(index,1);
+localStorage.setItem("classNotes",JSON.stringify(notes));
+showNotes();
+}
+}
+
 function openImage(src){
-let viewer = document.createElement("div");
+let viewer=document.createElement("div");
 
 viewer.style.position="fixed";
 viewer.style.top="0";
@@ -200,42 +304,17 @@ viewer.style.display="flex";
 viewer.style.alignItems="center";
 viewer.style.justifyContent="center";
 
-viewer.innerHTML=`<img src="${src}" style="max-width:90%; max-height:90%">`;
+viewer.innerHTML=`<img src="${src}" style="max-width:90%; max-height:90%; border-radius:10px;">`;
 
 viewer.onclick=function(){
 document.body.removeChild(viewer);
-};
+}
 
 document.body.appendChild(viewer);
 }
 
 showHome();
 
-</script>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-
-const firebaseConfig = {
-apiKey: "AIzaSyCf0dJcAQ_owKkhePBPQWw5RHmNhImgPSg",
-authDomain: "class6-notes.firebaseapp.com",
-projectId: "class6-notes",
-storageBucket: "class6-notes.firebasestorage.app",
-messagingSenderId: "392541164978",
-appId: "1:392541164978:web:d3b86d768be2eae87b00ab",
-measurementId: "G-MJZ09QFZHR"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-window.db = db;
-window.collection = collection;
-window.addDoc = addDoc;
-window.getDocs = getDocs;
-window.deleteDoc = deleteDoc;
-window.doc = doc;
 </script>
 
 </body>

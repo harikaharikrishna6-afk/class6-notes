@@ -68,11 +68,6 @@ width:200px;
 margin:6px;
 border-radius:6px;
 cursor:pointer;
-transition:0.3s;
-}
-
-.note-image:hover{
-transform:scale(1.05);
 }
 
 .tools{
@@ -96,21 +91,38 @@ background:#28a745;
 <nav>
 <a href="#" onclick="showHome()">Home</a>
 <a href="#" onclick="showUpload()">Upload Notes</a>
-<a href="#" onclick="showNotes()">Daily Notes</a>
+<a href="#" onclick="loadNotes()">Daily Notes</a>
 </nav>
 
 <div class="container" id="content"></div>
 
-<script>
+<script type="module">
 
-function showHome(){
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCf0dJcAQ_owKkhePBPQWw5RHmNhImgPSg",
+  authDomain: "class6-notes.firebaseapp.com",
+  projectId: "class6-notes",
+  storageBucket: "class6-notes.firebasestorage.app",
+  messagingSenderId: "392541164978",
+  appId: "1:392541164978:web:b4c68fcd3260f96d7b00ab"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+window.showHome = function(){
 document.getElementById("content").innerHTML = `
 <h2>Welcome</h2>
 <p>This website helps Class 6 students access daily classwork and homework.</p>
 `;
 }
 
-function showUpload(){
+window.showUpload = function(){
 document.getElementById("content").innerHTML = `
 <h2>Upload Notes</h2>
 
@@ -120,7 +132,7 @@ document.getElementById("content").innerHTML = `
 <label>Subject</label>
 <select id="subject">
 <option value="">Select Subject</option>
-<option>Math </option>
+<option>Math</option>
 <option>Science</option>
 <option>English</option>
 <option>Social</option>
@@ -130,11 +142,11 @@ document.getElementById("content").innerHTML = `
 <option>Other</option>
 </select>
 
-<label>Notes / Homework</label>
+<label>Notes</label>
 <input type="text" id="notes">
 
-<label>Upload Notebook Photos</label>
-<input type="file" id="photo" multiple accept="image/*">
+<label>Upload Photos</label>
+<input type="file" id="photo" multiple>
 
 <label>Parent Name</label>
 <input type="text" id="parent">
@@ -143,16 +155,50 @@ document.getElementById("content").innerHTML = `
 `;
 }
 
-function showNotes(){
-let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
+window.saveNote = async function(){
 
-notes.sort((a,b)=> new Date(b.date)-new Date(a.date));
+let date = document.getElementById("date").value;
+let subject = document.getElementById("subject").value;
+let notes = document.getElementById("notes").value;
+let parent = document.getElementById("parent").value;
+let files = document.getElementById("photo").files;
+
+if(date=="" || subject=="" || notes=="" || parent==""){
+alert("Please fill all fields");
+return;
+}
+
+let imageUrls = [];
+
+for(let file of files){
+let storageRef = ref(storage, "notes/"+Date.now()+file.name);
+await uploadBytes(storageRef, file);
+let url = await getDownloadURL(storageRef);
+imageUrls.push(url);
+}
+
+await addDoc(collection(db,"notes"),{
+date,
+subject,
+notes,
+parent,
+images:imageUrls,
+thanks:0
+});
+
+alert("Notes uploaded successfully!");
+loadNotes();
+}
+
+window.loadNotes = async function(){
+
+const querySnapshot = await getDocs(collection(db,"notes"));
 
 let html = `
 <h2>Daily Notes</h2>
 
 <div class="tools">
-<input type="text" id="search" placeholder="Search notes..." onkeyup="filterNotes()">
+<input type="text" id="search" placeholder="Search..." onkeyup="filterNotes()">
 
 <select id="filter" onchange="filterNotes()">
 <option value="all">All Subjects</option>
@@ -161,36 +207,33 @@ let html = `
 <option value="english">English</option>
 <option value="social">Social</option>
 <option value="computer">Computer</option>
-<option value="Hindi">Hindi</option>
-<option value="Telugu">Telugu</option>
-
-<option value="other">Other</option>
+<option value="hindi">Hindi</option>
+<option value="telugu">Telugu</option>
 </select>
 </div>
 `;
 
-notes.forEach((note,index)=>{
+querySnapshot.forEach((docSnap)=>{
+let note = docSnap.data();
+let id = docSnap.id;
 
 html += `
 <div class="note" data-subject="${note.subject.toLowerCase()}">
-
 <b>Date:</b> ${note.date}<br>
 <b>Subject:</b> ${note.subject}<br>
 <b>Notes:</b> ${note.notes}<br>
-<b>Uploaded by:</b> ${note.parent}<br>
-<b>Thanks:</b> ${note.thanks || 0}<br>
+<b>Parent:</b> ${note.parent}<br>
+<b>Thanks:</b> ${note.thanks}<br>
 `;
 
-if(note.images){
 note.images.forEach(img=>{
-html += `<img src="${img}" class="note-image" onclick="openImage('${img}')">`;
+html += `<img src="${img}" class="note-image">`;
 });
-}
 
 html += `
 <br>
-<button class="thank" onclick="thankNote(${index})">Thank You ❤️</button>
-<button onclick="deleteNote(${index})">Delete</button>
+<button class="thank" onclick="thankNote('${id}',${note.thanks})">Thank You ❤️</button>
+<button onclick="deleteNote('${id}')">Delete</button>
 </div>
 `;
 });
@@ -198,7 +241,8 @@ html += `
 document.getElementById("content").innerHTML = html;
 }
 
-function filterNotes(){
+window.filterNotes = function(){
+
 let search = document.getElementById("search").value.toLowerCase();
 let subject = document.getElementById("filter").value;
 let notes = document.querySelectorAll(".note");
@@ -207,137 +251,28 @@ notes.forEach(note=>{
 let text = note.innerText.toLowerCase();
 let noteSubject = note.dataset.subject;
 
-let searchMatch = text.includes(search);
-let subjectMatch = subject === "all" || noteSubject.includes(subject);
+let matchSearch = text.includes(search);
+let matchSubject = subject==="all" || noteSubject.includes(subject);
 
-if(searchMatch && subjectMatch){
-note.style.display="block";
-}else{
-note.style.display="none";
-}
+note.style.display = (matchSearch && matchSubject) ? "block" : "none";
 });
 }
 
-function saveNote(){
-
-let date = document.getElementById("date").value;
-let subject = document.getElementById("subject").value;
-let notesText = document.getElementById("notes").value;
-let parent = document.getElementById("parent").value;
-let files = document.getElementById("photo").files;
-
-if(date === "" || subject === "" || notesText === "" || parent === ""){
-alert("Please fill all fields before uploading.");
-return;
+window.thankNote = async function(id,thanks){
+const noteRef = doc(db,"notes",id);
+await updateDoc(noteRef,{thanks:thanks+1});
+loadNotes();
 }
 
-if(files.length === 0){
-alert("Please upload at least one photo of the notebook.");
-return;
-}
-
-let images = [];
-let total = files.length;
-let loaded = 0;
-
-for(let i=0;i<files.length;i++){
-let reader = new FileReader();
-
-reader.onload = function(e){
-images.push(e.target.result);
-loaded++;
-
-if(loaded === total){
-store(images);
-}
-};
-
-reader.readAsDataURL(files[i]);
-}
-}
-
-function store(images){
-let note={
-date:document.getElementById("date").value,
-subject:document.getElementById("subject").value,
-notes:document.getElementById("notes").value,
-parent:document.getElementById("parent").value,
-images:images,
-thanks:0
-};
-
-let data = JSON.parse(localStorage.getItem("classNotes")) || [];
-data.push(note);
-
-localStorage.setItem("classNotes",JSON.stringify(data));
-
-alert("Notes uploaded successfully!");
-showNotes();
-}
-
-function thankNote(index){
-let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
-notes[index].thanks++;
-localStorage.setItem("classNotes",JSON.stringify(notes));
-showNotes();
-}
-
-function deleteNote(index){
+window.deleteNote = async function(id){
 if(confirm("Delete this note?")){
-let notes = JSON.parse(localStorage.getItem("classNotes")) || [];
-notes.splice(index,1);
-localStorage.setItem("classNotes",JSON.stringify(notes));
-showNotes();
+await deleteDoc(doc(db,"notes",id));
+loadNotes();
 }
-}
-
-function openImage(src){
-let viewer=document.createElement("div");
-
-viewer.style.position="fixed";
-viewer.style.top="0";
-viewer.style.left="0";
-viewer.style.width="100%";
-viewer.style.height="100%";
-viewer.style.background="rgba(0,0,0,0.8)";
-viewer.style.display="flex";
-viewer.style.alignItems="center";
-viewer.style.justifyContent="center";
-
-viewer.innerHTML=`<img src="${src}" style="max-width:90%; max-height:90%; border-radius:10px;">`;
-
-viewer.onclick=function(){
-document.body.removeChild(viewer);
-}
-
-document.body.appendChild(viewer);
 }
 
 showHome();
 
-</script>
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyCf0dJcAQ_owKkhePBPQWw5RHmNhImgPSg",
-    authDomain: "class6-notes.firebaseapp.com",
-    projectId: "class6-notes",
-    storageBucket: "class6-notes.firebasestorage.app",
-    messagingSenderId: "392541164978",
-    appId: "1:392541164978:web:b4c68fcd3260f96d7b00ab",
-    measurementId: "G-MK4ESXQ57D"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
 </script>
 
 </body>

@@ -316,6 +316,29 @@ document.body.appendChild(viewer);
 showHome();
 
 </script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCf0dJcAQ_owKkhePBPQWw5RHmNhImgPSg",
+    authDomain: "class6-notes.firebaseapp.com",
+    projectId: "class6-notes",
+    storageBucket: "class6-notes.firebasestorage.app",
+    messagingSenderId: "392541164978",
+    appId: "1:392541164978:web:b4c68fcd3260f96d7b00ab",
+    measurementId: "G-MK4ESXQ57D"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 
 </body>
 </html>

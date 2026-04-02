@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Class 6 Daily Notes</title>
+<title>Class6 Daily Notes</title>
 
 <style>
 body{
@@ -28,6 +28,7 @@ color:white;
 margin:15px;
 text-decoration:none;
 font-weight:bold;
+cursor:pointer;
 }
 
 .container{
@@ -69,7 +70,6 @@ margin:6px;
 border-radius:6px;
 }
 </style>
-
 </head>
 
 <body>
@@ -80,19 +80,21 @@ border-radius:6px;
 </header>
 
 <nav>
-<a href="#" onclick="showHome()">Home</a>
-<a href="#" onclick="showUpload()">Upload Notes</a>
-<a href="#notes" onclick="loadNotes()">Daily Notes</a>
+<a onclick="showHome()">Home</a>
+<a onclick="showUpload()">Upload Notes</a>
+<a onclick="loadNotes()">Daily Notes</a>
 </nav>
 
 <div class="container" id="content"></div>
 
-<script type="module">
+<!-- Firebase CDN -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+<script>
 
+// 🔥 Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCf0dJcAQ_owKkhePBPQWw5RHmNhImgPSg",
   authDomain: "class6-notes.firebaseapp.com",
@@ -102,12 +104,14 @@ const firebaseConfig = {
   appId: "1:392541164978:web:b4c68fcd3260f96d7b00ab"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const storage = getStorage(app);
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+const storage = firebase.storage();
 
 // HOME
-window.showHome = function(){
+function showHome(){
 document.getElementById("content").innerHTML = `
 <h2>Welcome</h2>
 <p>This website helps Class 6 students access daily classwork and homework.</p>
@@ -115,7 +119,7 @@ document.getElementById("content").innerHTML = `
 }
 
 // UPLOAD PAGE
-window.showUpload = function(){
+function showUpload(){
 document.getElementById("content").innerHTML = `
 <h2>Upload Notes</h2>
 
@@ -148,8 +152,8 @@ document.getElementById("content").innerHTML = `
 `;
 }
 
-// SAVE NOTE (FIXED)
-window.saveNote = async function(){
+// SAVE NOTE
+async function saveNote(){
 
 let date = document.getElementById("date").value;
 let subject = document.getElementById("subject").value;
@@ -165,13 +169,13 @@ return;
 let imageUrls = [];
 
 for(let file of files){
-let storageRef = ref(storage, "notes/"+Date.now()+file.name);
-await uploadBytes(storageRef, file);
-let url = await getDownloadURL(storageRef);
+let storageRef = storage.ref("notes/"+Date.now()+file.name);
+await storageRef.put(file);
+let url = await storageRef.getDownloadURL();
 imageUrls.push(url);
 }
 
-await addDoc(collection(db,"notes"),{
+await db.collection("notes").add({
 date,
 subject,
 notes,
@@ -181,34 +185,30 @@ images:imageUrls
 
 alert("Notes uploaded successfully!");
 
-// CLEAR FORM
+// Clear form
 document.getElementById("date").value = "";
 document.getElementById("subject").value = "";
 document.getElementById("notes").value = "";
 document.getElementById("parent").value = "";
 document.getElementById("photo").value = "";
 
-// 🔥 FORCE OPEN DAILY NOTES
-setTimeout(() => {
-  window.location.hash = "#notes";
-  loadNotes();
-}, 500);
+// Go to notes page
+loadNotes();
 }
 
 // LOAD NOTES
-window.loadNotes = async function(){
+async function loadNotes(){
 
-const querySnapshot = await getDocs(collection(db,"notes"));
+let snapshot = await db.collection("notes").get();
 
 let html = `<h2>Daily Notes</h2>`;
 
-if(querySnapshot.empty){
+if(snapshot.empty){
 html += "<p>No notes uploaded yet.</p>";
 }
 
-querySnapshot.forEach((docSnap)=>{
-let note = docSnap.data();
-let id = docSnap.id;
+snapshot.forEach(doc => {
+let note = doc.data();
 
 html += `
 <div class="note">
@@ -224,22 +224,10 @@ html += `<img src="${img}" class="note-image">`;
 });
 }
 
-html += `
-<br>
-<button onclick="deleteNote('${id}')">Delete</button>
-</div>
-`;
+html += `</div>`;
 });
 
 document.getElementById("content").innerHTML = html;
-}
-
-// DELETE NOTE
-window.deleteNote = async function(id){
-if(confirm("Delete this note?")){
-await deleteDoc(doc(db,"notes",id));
-loadNotes();
-}
 }
 
 // START

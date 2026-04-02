@@ -82,7 +82,7 @@ border-radius:6px;
 <nav>
 <a href="#" onclick="showHome()">Home</a>
 <a href="#" onclick="showUpload()">Upload Notes</a>
-<a href="#" onclick="loadNotes()">Daily Notes</a>
+<a href="#notes" onclick="loadNotes()">Daily Notes</a>
 </nav>
 
 <div class="container" id="content"></div>
@@ -148,7 +148,7 @@ document.getElementById("content").innerHTML = `
 `;
 }
 
-// SAVE NOTE
+// SAVE NOTE (FIXED)
 window.saveNote = async function(){
 
 let date = document.getElementById("date").value;
@@ -188,8 +188,11 @@ document.getElementById("notes").value = "";
 document.getElementById("parent").value = "";
 document.getElementById("photo").value = "";
 
-// SHOW NOTES PAGE
-loadNotes();
+// 🔥 FORCE OPEN DAILY NOTES
+setTimeout(() => {
+  window.location.hash = "#notes";
+  loadNotes();
+}, 500);
 }
 
 // LOAD NOTES
@@ -239,7 +242,7 @@ loadNotes();
 }
 }
 
-// START PAGE
+// START
 showHome();
 
 </script>

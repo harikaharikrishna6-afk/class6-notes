@@ -67,15 +67,6 @@ border-radius:10px;
 width:200px;
 margin:6px;
 border-radius:6px;
-cursor:pointer;
-}
-
-.tools{
-margin-bottom:15px;
-}
-
-.thank{
-background:#28a745;
 }
 </style>
 
@@ -99,7 +90,7 @@ background:#28a745;
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -182,86 +173,50 @@ date,
 subject,
 notes,
 parent,
-images:imageUrls,
-thanks:0
+images:imageUrls
 });
 
 alert("Notes uploaded successfully!");
-loadNotes();
+
+// FIX: Auto reload notes
+setTimeout(() => {
+  loadNotes();
+}, 1000);
 }
 
 window.loadNotes = async function(){
 
 const querySnapshot = await getDocs(collection(db,"notes"));
+console.log("Notes count:", querySnapshot.size);
 
-let html = `
-<h2>Daily Notes</h2>
-
-<div class="tools">
-<input type="text" id="search" placeholder="Search..." onkeyup="filterNotes()">
-
-<select id="filter" onchange="filterNotes()">
-<option value="all">All Subjects</option>
-<option value="math">Math</option>
-<option value="science">Science</option>
-<option value="english">English</option>
-<option value="social">Social</option>
-<option value="computer">Computer</option>
-<option value="hindi">Hindi</option>
-<option value="telugu">Telugu</option>
-</select>
-</div>
-`;
+let html = `<h2>Daily Notes</h2>`;
 
 querySnapshot.forEach((docSnap)=>{
 let note = docSnap.data();
 let id = docSnap.id;
 
 html += `
-<div class="note" data-subject="${note.subject.toLowerCase()}">
+<div class="note">
 <b>Date:</b> ${note.date}<br>
 <b>Subject:</b> ${note.subject}<br>
 <b>Notes:</b> ${note.notes}<br>
 <b>Parent:</b> ${note.parent}<br>
-<b>Thanks:</b> ${note.thanks}<br>
 `;
 
+if(note.images){
 note.images.forEach(img=>{
 html += `<img src="${img}" class="note-image">`;
 });
+}
 
 html += `
 <br>
-<button class="thank" onclick="thankNote('${id}',${note.thanks})">Thank You ❤️</button>
 <button onclick="deleteNote('${id}')">Delete</button>
 </div>
 `;
 });
 
 document.getElementById("content").innerHTML = html;
-}
-
-window.filterNotes = function(){
-
-let search = document.getElementById("search").value.toLowerCase();
-let subject = document.getElementById("filter").value;
-let notes = document.querySelectorAll(".note");
-
-notes.forEach(note=>{
-let text = note.innerText.toLowerCase();
-let noteSubject = note.dataset.subject;
-
-let matchSearch = text.includes(search);
-let matchSubject = subject==="all" || noteSubject.includes(subject);
-
-note.style.display = (matchSearch && matchSubject) ? "block" : "none";
-});
-}
-
-window.thankNote = async function(id,thanks){
-const noteRef = doc(db,"notes",id);
-await updateDoc(noteRef,{thanks:thanks+1});
-loadNotes();
 }
 
 window.deleteNote = async function(id){

@@ -106,15 +106,26 @@ loadNotes();
 async function loadNotes(){
 try{
 
-let snapshot = await db.collection("notes").orderBy("date","desc").get();
+let snapshot = await db.collection("notes").get();
+
+// ✅ CHECK snapshot
+if(!snapshot){
+document.getElementById("content").innerHTML = "No data found";
+return;
+}
 
 let html = `<h2>Daily Notes</h2>`;
 
+// ✅ CHECK empty
 if(snapshot.empty){
 html += "<p>No notes uploaded yet.</p>";
+document.getElementById("content").innerHTML = html;
+return;
 }
 
-snapshot.forEach(doc => {
+// ✅ SAFE LOOP
+snapshot.docs.forEach(doc => {
+
 let note = doc.data();
 
 if(!note) return;
@@ -127,8 +138,7 @@ html += `
 <b>Parent:</b> ${note.parent || ""}<br>
 `;
 
-
-// ✅ SAFE IMAGE CHECK
+// ✅ SAFE images
 if(note.images && Array.isArray(note.images)){
 note.images.forEach(img=>{
 html += `<img src="${img}" class="note-image">`;
@@ -141,11 +151,10 @@ html += `</div>`;
 document.getElementById("content").innerHTML = html;
 
 }catch(error){
-console.error(error);
-alert("Error loading notes");
+console.error("ERROR:", error);
+alert("Error loading notes. Check console.");
 }
 }
-
 // START
 showHome();
 
